@@ -21,7 +21,7 @@ import {
 } from "recharts";
 
 const SCRIPT_URL =
-  "https://script.google.com/macros/s/AKfycby8o8aWDZtxdDJlyUGhOFyT150PCJXuEDiVJpvEgbJv5bpCgdc1z_P2aZ2lkrRnavgPnw/exec";
+  "https://script.google.com/macros/s/AKfycbx_boX4QKY894rq33PmiR5O3IMoellmSkxpc32wHdxYQuJgO3iTyjbyu__OCI1xrn6fWA/exec";
 
 const DEFAULT_TARGETS = {
   totalWealth: 5000000,
@@ -2226,6 +2226,462 @@ const [deletedPortfolioSymbols, setDeletedPortfolioSymbols] = useState<string[]>
             </div>
           </div>
         )}
+
+        {tab === "input" && (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: isMobile ? "1fr" : "1.6fr 1fr",
+              gap: 20,
+            }}
+          >
+            <div>
+              <div style={{ ...IB, padding: 0, overflow: "hidden" }}>
+                <div
+                  style={{
+                    padding: "14px 18px",
+                    borderBottom: "1px solid #1d2a3d",
+                    display: "flex",
+                    alignItems: isMobile ? "flex-start" : "center",
+                    justifyContent: "space-between",
+                    flexDirection: isMobile ? "column" : "row",
+                    gap: 12,
+                    background: "#060d18",
+                  }}
+                >
+                  <div>
+                    <div
+                      style={{
+                        fontWeight: 800,
+                        fontSize: 13,
+                        color: "#e2e8f0",
+                      }}
+                    >
+                      Portfolio Holdings
+                    </div>
+                    <div
+                      style={{ fontSize: 10, color: "#64748b", marginTop: 2 }}
+                    >
+                      Enter symbol, type, units, average cost, and target %.
+                      Price is automatic.
+                    </div>
+                  </div>
+                  <button
+                    onClick={addHolding}
+                    style={{
+                      background: "#1f3c63",
+                      border: "none",
+                      color: "#8ec5ff",
+                      borderRadius: 8,
+                      padding: "7px 14px",
+                      fontSize: 12,
+                      cursor: "pointer",
+                      fontFamily: "'Inter', sans-serif",
+                      fontWeight: 700,
+                      width: isMobile ? "100%" : "auto",
+                    }}
+                  >
+                    + Add Position
+                  </button>
+                </div>
+
+                <div style={{ overflowX: "auto" }}>
+                  <table
+                    style={{
+                      width: "100%",
+                      minWidth: 980,
+                      borderCollapse: "collapse",
+                    }}
+                  >
+                    <thead>
+                      <tr style={{ background: "#060d18" }}>
+                        {[
+                          "#",
+                          "Symbol",
+                          "Type",
+                          "Units",
+                          "Avg Cost",
+                          "Target %",
+                          "Price",
+                          "Market Value",
+                          "",
+                        ].map((h, i) => (
+                          <th
+                            key={i}
+                            style={{
+                              padding: "12px 10px",
+                              fontSize: 11,
+                              color: "#d6e0ee",
+                              fontWeight: 800,
+                              textAlign:
+                                i === 0 || i === 8
+                                  ? "center"
+                                  : i <= 2
+                                  ? "left"
+                                  : "right",
+                              textTransform: "uppercase",
+                              letterSpacing: "0.12em",
+                              borderBottom: "1px solid #1d2a3d",
+                            }}
+                          >
+                            {h}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+
+                    <tbody>
+                      {holdings.map((h, i) => {
+                        const mv = num(h.units) * num(h.price);
+
+                        return (
+                          <tr
+                            key={i}
+                            className="rh"
+                            style={{
+                              background:
+                                i % 2 === 0 ? "transparent" : "#08111f",
+                              borderBottom: "1px solid #0d1526",
+                            }}
+                          >
+                            <td
+                              style={{
+                                padding: "6px 10px",
+                                textAlign: "center",
+                                fontSize: 10,
+                                color: "#4b607b",
+                                fontFamily: "'DM Mono', monospace",
+                              }}
+                            >
+                              {i + 1}
+                            </td>
+                            <td style={{ padding: "4px 5px" }}>
+                              <EInput
+                                val={h.symbol}
+                                onChange={(v) =>
+                                  updateHolding(i, "symbol", v.toUpperCase())
+                                }
+                                placeholder="SYMBOL"
+                                align="left"
+                                width="76px"
+                              />
+                            </td>
+                            <td style={{ padding: "4px 5px" }}>
+                              <EInput
+                                val={normalizeHoldingType(h.type)}
+                                onChange={(v) => updateHolding(i, "type", v)}
+                                options={HOLDING_TYPES}
+                                width="88px"
+                              />
+                            </td>
+                            <td style={{ padding: "4px 5px" }}>
+                              <EInput
+                                val={h.units}
+                                onChange={(v) => updateHolding(i, "units", v)}
+                                placeholder="0"
+                                width="66px"
+                              />
+                            </td>
+                            <td style={{ padding: "4px 5px" }}>
+                              <EInput
+                                val={h.avgCost}
+                                onChange={(v) => updateHolding(i, "avgCost", v)}
+                                placeholder="0.00"
+                                width="72px"
+                              />
+                            </td>
+                            <td
+                              style={{
+                                padding: "4px 5px",
+                                textAlign: "right",
+                                fontSize: 12,
+                                fontFamily: "'DM Mono', monospace",
+                                color:
+                                  targetPct(h.targetWeight) > 0
+                                    ? "#60a5fa"
+                                    : "#64748b",
+                                fontWeight: 800,
+                                letterSpacing: "0.01em",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              <span
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  justifyContent: "flex-end",
+                                  gap: 5,
+                                }}
+                              >
+                                <EInput
+                                  val={
+                                    h.targetWeight === "" || h.targetWeight === null || h.targetWeight === undefined
+                                      ? ""
+                                      : fmt(targetPct(h.targetWeight), 2)
+                                  }
+                                  onChange={(v) => updateHolding(i, "targetWeight", v)}
+                                  placeholder="0.00"
+                                  width="70px"
+                                />
+                                <span style={{ color: "#60a5fa", fontWeight: 800 }}>%</span>
+                              </span>
+                            </td>
+                            <td
+                              style={{
+                                padding: "6px 10px",
+                                textAlign: "right",
+                                fontSize: 12,
+                                fontFamily: "'DM Mono', monospace",
+                                color: num(h.price) > 0 ? "#9fb0c6" : "#64748b",
+                                fontWeight: 400,
+                                letterSpacing: "0.01em",
+                              }}
+                            >
+                              {num(h.price) > 0 ? fmt(num(h.price)) : "—"}
+                            </td>
+                            <td
+                              style={{
+                                padding: "6px 10px",
+                                textAlign: "right",
+                                fontSize: 11,
+                                fontFamily: "'DM Mono', monospace",
+                                color: mv > 0 ? "#b8c5d6" : "#2f3f55",
+                              }}
+                            >
+                              {mv > 0 ? `฿${fmt(mv)}` : "—"}
+                            </td>
+                            <td
+                              style={{
+                                padding: "4px 5px",
+                                textAlign: "center",
+                              }}
+                            >
+                              <button
+                                className="ibtn"
+                                onClick={() => removeHolding(i)}
+                              >
+                                ✕
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+
+                    <tfoot>
+                      <tr
+                        style={{
+                          background: "#060d18",
+                          borderTop: "2px solid #1d2a3d",
+                        }}
+                      >
+                        <td
+                          colSpan={7}
+                          style={{
+                            padding: "11px 14px",
+                            fontSize: 11,
+                            color: "#7d8ea5",
+                            fontWeight: 800,
+                            letterSpacing: "0.1em",
+                            textTransform: "uppercase",
+                          }}
+                        >
+                          Total Equity
+                        </td>
+                        <td
+                          style={{
+                            padding: "11px 14px",
+                            textAlign: "right",
+                            fontFamily: "'DM Mono', monospace",
+                            fontSize: 13,
+                            fontWeight: 800,
+                            color: "#f2f6fb",
+                          }}
+                        >
+                          ฿{fmt(equityValue)}
+                        </td>
+                        <td />
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+
+              <div style={IB}>
+                <div style={ST}>Portfolio Name</div>
+                <input
+                  value={portfolioName}
+                  onChange={(e) => setPortfolioName(e.target.value)}
+                  placeholder="Enter portfolio name"
+                  style={{
+                    width: "100%",
+                    background: "#0d1526",
+                    border: "1px solid #1d2a3d",
+                    borderRadius: 10,
+                    color: "#e2e8f0",
+                    fontSize: 14,
+                    fontFamily: "'DM Mono', monospace",
+                    padding: "10px 12px",
+                    outline: "none",
+                    fontWeight: 600,
+                  }}
+                />
+              </div>
+
+              <div style={IB}>
+                <div style={ST}>Cash / Line Available</div>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <span style={{ fontSize: 13, color: "#7d8ea5" }}>฿</span>
+                  <input
+                    value={cash}
+                    onChange={(e) => setCash(e.target.value)}
+                    type="number"
+                    style={{
+                      background: "#0d1526",
+                      border: "1px solid #1d2a3d",
+                      borderRadius: 10,
+                      color: "#34d399",
+                      fontSize: 16,
+                      fontFamily: "'DM Mono', monospace",
+                      padding: "9px 12px",
+                      outline: "none",
+                      width: isMobile ? "100%" : "220px",
+                      fontWeight: 700,
+                    }}
+                  />
+                  {!isMobile && (
+                    <span style={{ fontSize: 11, color: "#4b607b" }}>THB</span>
+                  )}
+                </div>
+              </div>
+
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div style={IB}>
+                <div
+                  style={{
+                    fontWeight: 800,
+                    fontSize: 13,
+                    marginBottom: 14,
+                    color: "#e2e8f0",
+                  }}
+                >
+                  Target Weight Coverage
+                </div>
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+                    gap: 10,
+                  }}
+                >
+                  {targetCoverageCards.map((c) => {
+                    const pct = Math.min(c.total, 100);
+
+                    return (
+                      <div
+                        key={c.label}
+                        style={{
+                          background: "#080e1c",
+                          border: `1px solid ${c.color}40`,
+                          borderRadius: 10,
+                          padding: "12px 12px",
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontSize: 12,
+                            color: "#aebacd",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 6,
+                            fontWeight: 700,
+                            marginBottom: 8,
+                          }}
+                        >
+                          <span
+                            style={{
+                              width: 7,
+                              height: 7,
+                              borderRadius: "50%",
+                              background: c.color,
+                              display: "inline-block",
+                            }}
+                          />
+                          {c.label}
+                        </div>
+
+                        <div
+                          style={{
+                            fontSize: 20,
+                            color: c.color,
+                            fontFamily: "'DM Mono', monospace",
+                            fontWeight: 800,
+                            marginBottom: 6,
+                          }}
+                        >
+                          {fmt(c.total, 0)}%
+                        </div>
+
+                        <div className="pbar" style={{ marginBottom: 8 }}>
+                          <div
+                            className="pfill"
+                            style={{
+                              width: `${pct}%`,
+                              background: c.color,
+                            }}
+                          />
+                        </div>
+
+                        <div
+                          style={{
+                            color: "#4b607b",
+                            fontSize: 10,
+                            lineHeight: 1.45,
+                          }}
+                        >
+                          {c.subtitle}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+
+              <button
+                onClick={handleSave}
+                style={{
+                  background: saved
+                    ? "#06261a"
+                    : "linear-gradient(135deg,#1d4ed8,#2563eb)",
+                  border: `1px solid ${saved ? "#0d5a3d" : "#3b82f6"}`,
+                  color: saved ? "#4ade80" : "#fff",
+                  borderRadius: 12,
+                  padding: "15px 18px",
+                  fontSize: 14,
+                  fontWeight: 800,
+                  cursor: "pointer",
+                  fontFamily: "'Inter', sans-serif",
+                  boxShadow: saved ? "none" : "0 10px 24px rgba(37,99,235,.22)",
+                  width: "100%",
+                }}
+              >
+                {saved ? "✓ Saved" : "Save"}
+              </button>
+            </div>
+          </div>
+        )}
+
 
         {tab === "progress" && (
           <div style={{ display: "grid", gap: 14 }}>
