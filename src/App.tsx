@@ -1,14 +1,15 @@
-/* eslint-disable */
 // @ts-nocheck
 import { useEffect, useMemo, useState } from "react";
 import {
   PieChart,
   Pie,
   Cell,
-  Tooltip,
+  Tooltip as RechartsTooltip,
   ResponsiveContainer,
   BarChart,
   Bar,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -18,8 +19,9 @@ import {
   PolarGrid,
   PolarAngleAxis,
 } from "recharts";
+
 const SCRIPT_URL =
-  "https://script.google.com/macros/s/AKfycbyH4YbC654hyVd6CB0whmgwsiwYXIKLXWAX_Tk2GH8yyxJSRZWPm_qpNICeYlAOqpD5/exec";
+  "https://script.google.com/macros/s/AKfycby8o8aWDZtxdDJlyUGhOFyT150PCJXuEDiVJpvEgbJv5bpCgdc1z_P2aZ2lkrRnavgPnw/exec";
 
 const DEFAULT_TARGETS = {
   totalWealth: 5000000,
@@ -46,7 +48,7 @@ const EMPTY_HOLDING = {
 
 const HOLDING_TYPES = ["Dividend", "Growth", "Other"];
 
-const normalizeHoldingType = (...values) => {
+const normalizeHoldingType = (...values: any[]) => {
   for (const value of values) {
     const text = String(value ?? "")
       .trim()
@@ -65,53 +67,43 @@ const normalizeHoldingType = (...values) => {
   return "Other";
 };
 
-const typeBadgeStyle = (type) => {
+const typeBadgeStyle = (type: unknown) => {
   const t = normalizeHoldingType(type);
-  if (t === "Dividend") {
-    return {
-      background: "#07261c",
-      color: "#34d399",
-      border: "1px solid #0d5a3d",
-    };
-  }
-  if (t === "Growth") {
-    return {
-      background: "#0b1e37",
-      color: "#60a5fa",
-      border: "1px solid #234980",
-    };
-  }
-  return {
-    background: "#111827",
-    color: "#93a4bb",
-    border: "1px solid #334155",
-  };
-};
 
-const fmt = (n, d = 2) =>
-  isNaN(n) || n === null || n === ""
+  if (t === "Dividend") {
+    return { background: "#1f8b4c", color: "#fff" };
+  }
+
+  if (t === "Growth") {
+    return { background: "#1f4c8b", color: "#fff" };
+  }
+
+  return { background: "#444", color: "#fff" };
+};
+const fmt = (n: any, d: number = 2) => {
+  return isNaN(n) || n === null || n === ""
     ? "—"
     : Number(n).toLocaleString("th-TH", {
         minimumFractionDigits: d,
         maximumFractionDigits: d,
       });
-
-const fmtB = (n) =>
+};
+const fmtB = (n: any) =>
   n >= 1000000
     ? `${fmt(n / 1000000)}M`
     : n >= 1000
     ? `${fmt(n / 1000, 1)}K`
     : fmt(n);
 
-const num = (v) => parseFloat(String(v).replace(/,/g, "")) || 0;
+const num = (v: any) => parseFloat(String(v).replace(/,/g, "")) || 0;
 
-const targetPct = (v) => {
+const targetPct = (v: any) => {
   const n = num(v);
   if (!n) return 0;
   return n <= 1 ? n * 100 : n;
 };
 
-const fmtPct = (v, d = 0) => {
+const fmtPct = (v: any, d: number = 0) => {
   const pct = targetPct(v);
   return pct > 0 ? `${fmt(pct, d)}%` : "—";
 };
@@ -125,7 +117,8 @@ function EInput({
   width = "100%",
   small = false,
   disabled = false,
-}) {
+}: any) {
+
   const [focus, setFocus] = useState(false);
 
   const base = {
@@ -158,7 +151,7 @@ function EInput({
           cursor: disabled ? "not-allowed" : "pointer",
         }}
       >
-        {options.map((o) => (
+        {options.map((o: any) => (
           <option key={o} value={o}>
             {o}
           </option>
@@ -181,7 +174,8 @@ function EInput({
   );
 }
 
-function CTip({ active, payload, label }) {
+function CTip(props: any) { 
+  const { active, payload, label } = props || {};
   if (!active || !payload?.length) return null;
   return (
     <div
@@ -200,7 +194,7 @@ function CTip({ active, payload, label }) {
           {label}
         </div>
       )}
-      {payload.map((p, i) => (
+      {payload.map((p: any, i: number) => (
         <div key={i} style={{ marginBottom: 3 }}>
           <span style={{ color: p.color || "#94a3b8" }}>{p.name}:</span>{" "}
           <span style={{ fontFamily: "'DM Mono', monospace" }}>
@@ -212,11 +206,10 @@ function CTip({ active, payload, label }) {
   );
 }
 
-export default function App() {
-  console.log("NORMAL SERVICE");
 
+function App() {
   const [tab, setTab] = useState("dashboard");
-  const [phase, setPhase] = useState("Build");
+  const [phase, setPhase] = useState("Normal V2");
   const [holdings, setHoldings] = useState(
     Array(18)
       .fill(null)
@@ -245,28 +238,16 @@ export default function App() {
     lineAvailable: 0,
     maxBudget: 0,
     effectiveBudget: 0,
-    phase: "BUILD",
+    phase: "Normal V2",
     totalBuyNeed: 0,
     growthSell: 0,
     remainingNeed: 0,
   });
 
-  const [buyOrders, setBuyOrders] = useState([]);
-  const [sellOrders, setSellOrders] = useState([]);
-  const [originalPortfolioSymbols, setOriginalPortfolioSymbols] = useState([]);
-  const [deletedPortfolioSymbols, setDeletedPortfolioSymbols] = useState([]);
-  const [decisionSaved, setDecisionSaved] = useState(false);
-  const [decisionForm, setDecisionForm] = useState({
-    assetCode: "",
-    systemSuggest: "BUY",
-    systemPrice: "",
-    units: "",
-    youDid: "BUY",
-    buySellPrice: "",
-  });
-
-  const [orderEdits, setOrderEdits] = useState({});
-  const [loggedOrderIds, setLoggedOrderIds] = useState([]);
+ const [buyOrders, setBuyOrders] = useState<any[]>([]);
+const [sellOrders, setSellOrders] = useState<any[]>([]);
+const [originalPortfolioSymbols, setOriginalPortfolioSymbols] = useState<string[]>([]);
+const [deletedPortfolioSymbols, setDeletedPortfolioSymbols] = useState<string[]>([]);
 
   useEffect(() => {
     const onResize = () => {
@@ -310,12 +291,7 @@ export default function App() {
         apiSummary.cash ??
         0;
 
-      const portfolioPhase =
-        apiSummary.phase ||
-        apiSummary.portfolioPhase ||
-        apiSummary.portfolio_phase ||
-        apiPhaseControl.portfolioPhase ||
-        "Build";
+      const portfolioPhase = "Normal V2";
 
       setSummary({
         ...apiSummary,
@@ -334,46 +310,9 @@ export default function App() {
       });
 
       setCash(num(lineAvailable));
-      setMaxBudget(num(apiSummary.maxBudget ?? apiSummary.max_budget ?? 5000));
+      setMaxBudget(0);
 
-      const rawPhase = String(portfolioPhase).trim().toUpperCase();
-
-      const phaseMap = {
-        BUILD: "Build",
-        ACCUMULATE: "Accumulate",
-        INCOMEFOCUS: "Income",
-        "INCOME FOCUS": "Income",
-        INCOME: "Income",
-      };
-      setPhase(phaseMap[rawPhase] || portfolioPhase || "Build");
-
-      if (Array.isArray(apiPhaseControl.phases)) {
-        const nextPhases = { ...DEFAULT_PHASES };
-        apiPhaseControl.phases.forEach((p) => {
-          const name = String(p.phase || "").trim();
-          if (!name) return;
-          const dividendPct =
-            num(p.dividend) <= 1 ? num(p.dividend) * 100 : num(p.dividend);
-          const growthPct =
-            num(p.growth) <= 1 ? num(p.growth) * 100 : num(p.growth);
-          const phaseKeyMap = {
-            BUILD: "Build",
-            ACCUMULATE: "Accumulate",
-            INCOME: "Income",
-            INCOMEFOCUS: "Income",
-            "INCOME FOCUS": "Income",
-          };
-          const key =
-            phaseKeyMap[name.toUpperCase().replace(/\s+/g, " ")] || name;
-          nextPhases[key] = {
-            ...(nextPhases[key] || {}),
-            dividendPct,
-            growthPct,
-            monthlyGrowth: nextPhases[key]?.monthlyGrowth || 15000,
-          };
-        });
-        setPhases(nextPhases);
-      }
+      setPhase("Normal V2");
 
       if (data.targets) {
         setTargets((prev) => ({
@@ -425,7 +364,7 @@ export default function App() {
         setDeletedPortfolioSymbols([]);
 
         while (normalized.length < 18) {
-          normalized.push({ ...EMPTY_HOLDING });
+          normalized.push({ ...EMPTY_HOLDING, source: EMPTY_HOLDING.type });
         }
 
         setHoldings(normalized.slice(0, 18));
@@ -440,11 +379,12 @@ export default function App() {
               symbol: o.symbol || o.assetCode || "",
               type: normalizeHoldingType(o.type, o.source, o.osType),
               price: o.price ?? o.marketPrice ?? 0,
-              suggestedBuy: o.suggestedBuy ?? o.buyNeed ?? o.suggestedCash ?? 0,
               units: o.units ?? o.buyUnits ?? 0,
-              cash: o.cash ?? o.cashUsed ?? o.actualBuyValue ?? 0,
-              status: o.status || "BUY",
-              note: o.note || o.statusNote || "",
+              cash:
+                o.cash ?? o.cashUsed ?? o.actualBuyValue ?? o.suggestedBuy ?? 0,
+              status: o.status || o.statusNote || "BUY",
+              note: o.note || "",
+              execute: String(o.execute || o.note || "EXECUTE").trim().toUpperCase(),
             }))
         );
       } else {
@@ -460,17 +400,18 @@ export default function App() {
               symbol: o.symbol || o.assetCode || "",
               type: normalizeHoldingType(o.type, o.source, o.osType),
               price: o.price ?? o.marketPrice ?? "",
-              suggestedSell: o.suggestedSell ?? 0,
               units: o.units ?? o.sellUnits ?? "",
-              sellValue: o.sellValue ?? o.actualSellValue ?? "",
-              status: o.status || o.sellStatus || "SELL",
-              note: o.note || o.statusNote || "",
+              sellValue:
+                o.sellValue ?? o.actualSellValue ?? o.suggestedSell ?? "",
+              status: o.status || o.sellStatus || o.statusNote || "",
+              note: o.note || "",
             }))
         );
       } else {
         setSellOrders([]);
       }
-    } catch (err) {
+
+    } catch (err: any) {
       console.error("Load error:", err);
       setLoadError(err.message || "Load error");
     } finally {
@@ -511,11 +452,26 @@ export default function App() {
   const totalCost = computed.reduce((s, h) => s + h.cost, 0);
   const totalGLPct = totalCost > 0 ? (totalGL / totalCost) * 100 : 0;
 
-  const phaseData = phases[phase] || phases.Build;
+  const advanceTargetWeightTotals = useMemo(() => {
+    const totals = { Dividend: 0, Growth: 0 };
+    holdings.forEach((h) => {
+      const type = normalizeHoldingType(h.type);
+      const weight = targetPct(h.targetWeight);
+      if (type === "Dividend") totals.Dividend += weight;
+      if (type === "Growth") totals.Growth += weight;
+    });
+    return totals;
+  }, [holdings]);
+
+  const phaseData = {
+    dividendPct: advanceTargetWeightTotals.Dividend,
+    growthPct: advanceTargetWeightTotals.Growth,
+  };
   const divPct = equityValue > 0 ? (divValue / equityValue) * 100 : 0;
   const growPct = equityValue > 0 ? (growValue / equityValue) * 100 : 0;
   const divGap = divPct - phaseData.dividendPct;
   const growGap = growPct - phaseData.growthPct;
+  const needRebal = Math.abs(divGap) > 5 || Math.abs(growGap) > 5;
 
   const totalBuyCash = num(
     summary.totalBuyNeed ?? summary.total_buy_need ?? summary.buyNeed
@@ -576,189 +532,10 @@ export default function App() {
       }
 
       await loadPortfolioFromSheet();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Phase save error:", err);
       setLoadError(err.message || "Phase save error");
       alert(`Save phase failed: ${err.message || "Unknown error"}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const getHoldingAvgCost = (symbol) => {
-    const code = String(symbol || "")
-      .trim()
-      .toUpperCase();
-    const found = holdings.find(
-      (h) =>
-        String(h.symbol || "")
-          .trim()
-          .toUpperCase() === code
-    );
-    return num(found?.avgCost);
-  };
-
-  const getOrderEdit = (order, actionType) => {
-    const id = `${actionType}-${order.id || order.symbol}`;
-    const current = orderEdits[id] || {};
-    return {
-      actualUnits:
-        current.actualUnits ??
-        (order.units === "" || order.units === undefined ? "" : order.units),
-      actualPrice:
-        current.actualPrice ??
-        (order.price === "" || order.price === undefined ? "" : order.price),
-      note: current.note ?? "",
-    };
-  };
-
-  const updateOrderEdit = (orderId, field, value) => {
-    setOrderEdits((prev) => ({
-      ...prev,
-      [orderId]: {
-        ...(prev[orderId] || {}),
-        [field]: value,
-      },
-    }));
-  };
-
-  const saveOrderDecision = async (order, actionType) => {
-    try {
-      const orderId = `${actionType}-${order.id || order.symbol}`;
-      if (loggedOrderIds.includes(orderId)) return;
-
-      const edit = getOrderEdit(order, actionType);
-      const assetCode = String(order.symbol || order.assetCode || "")
-        .trim()
-        .toUpperCase();
-      const actualUnits = num(edit.actualUnits);
-      const actualPrice = num(edit.actualPrice);
-      const suggestedUnits = num(order.units);
-      const suggestedPrice = num(order.price);
-      const avgCost = getHoldingAvgCost(assetCode);
-
-      if (!assetCode || actualUnits <= 0 || actualPrice <= 0) {
-        alert(
-          "Please enter Actual Units and Actual Price before marking Done."
-        );
-        return;
-      }
-
-      setLoading(true);
-      setLoadError("");
-
-      const res = await fetch(SCRIPT_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "text/plain;charset=utf-8",
-        },
-        body: JSON.stringify({
-          action: "logDecision",
-          actionType,
-          assetCode,
-          youDid: actionType,
-          suggestedUnits,
-          actualUnits,
-          units: actualUnits,
-          avgCost,
-          suggestedPrice,
-          actualPrice,
-          buySellPrice: actualPrice,
-          note: edit.note || order.note || "",
-        }),
-      });
-
-      const result = await res.json();
-      if (!result.success) {
-        throw new Error(result.message || "Save order decision failed");
-      }
-
-      setLoggedOrderIds((prev) => [...prev, orderId]);
-      setDecisionSaved(true);
-      setTimeout(() => setDecisionSaved(false), 2000);
-    } catch (err) {
-      console.error("Order decision save error:", err);
-      setLoadError(err.message || "Order decision save error");
-      alert(`Save order decision failed: ${err.message || "Unknown error"}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const saveDecisionRecord = async () => {
-    try {
-      const assetCode = String(decisionForm.assetCode || "")
-        .trim()
-        .toUpperCase();
-      const systemSuggest = String(decisionForm.systemSuggest || "")
-        .trim()
-        .toUpperCase();
-      const youDid = String(decisionForm.youDid || "")
-        .trim()
-        .toUpperCase();
-      const units = num(decisionForm.units);
-      const systemPrice = num(decisionForm.systemPrice);
-      const buySellPrice = num(decisionForm.buySellPrice);
-
-      if (
-        !assetCode ||
-        !systemSuggest ||
-        !youDid ||
-        units <= 0 ||
-        buySellPrice <= 0
-      ) {
-        alert(
-          "Please fill Asset Code, System Suggest, Units, You Did, and Buy/Sell Price."
-        );
-        return;
-      }
-
-      setLoading(true);
-      setLoadError("");
-
-      const res = await fetch(SCRIPT_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "text/plain;charset=utf-8",
-        },
-        body: JSON.stringify({
-          action: "logDecision",
-          assetCode,
-          systemSuggest,
-          suggestedPrice: systemPrice || buySellPrice,
-          systemPrice: systemPrice || buySellPrice,
-          suggestedUnits: units,
-          actualUnits: units,
-          actualPrice: buySellPrice,
-          units,
-          youDid,
-          buySellPrice,
-        }),
-      });
-
-      const result = await res.json();
-
-      if (!result.success) {
-        throw new Error(result.message || "Save decision failed");
-      }
-
-      setDecisionSaved(true);
-      setTimeout(() => setDecisionSaved(false), 2000);
-
-      setDecisionForm({
-        assetCode: "",
-        systemSuggest: "BUY",
-        systemPrice: "",
-        units: "",
-        youDid: "BUY",
-        buySellPrice: "",
-      });
-
-      await loadPortfolioFromSheet();
-    } catch (err) {
-      console.error("Decision log save error:", err);
-      setLoadError(err.message || "Decision log save error");
-      alert(`Save record failed: ${err.message || "Unknown error"}`);
     } finally {
       setLoading(false);
     }
@@ -783,7 +560,10 @@ export default function App() {
       const portfolioPayload = {
         action: "savePortfolio",
         portfolio: holdings
-          .filter((h) => String(h.symbol || "").trim())
+          .filter((h) => {
+            const symbol = String(h.symbol || "").trim().toUpperCase();
+            return symbol && symbol !== "SYMBOL";
+          })
           .map((h) => ({
             assetCode: String(h.symbol || "")
               .trim()
@@ -793,6 +573,8 @@ export default function App() {
             osType: normalizeHoldingType(h.type),
             units: h.units === "" ? "" : Number(h.units),
             avgCost: h.avgCost === "" ? "" : Number(h.avgCost),
+            targetWeight: h.targetWeight === "" ? "" : targetPct(h.targetWeight),
+            note: h.note || "",
           })),
       };
 
@@ -861,10 +643,63 @@ export default function App() {
       setDeletedPortfolioSymbols([]);
 
       await loadPortfolioFromSheet();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Save error:", err);
       setLoadError(err.message || "Save error");
       alert(`Save failed: ${err.message || "Unknown error"}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const saveProgressTargets = async () => {
+    try {
+      setLoading(true);
+      setLoadError("");
+
+      const progressTargets = {
+        totalWealth: num(targets.totalWealth),
+        dividendValue: num(targets.dividendValue),
+        growthValue: num(targets.growthValue),
+      };
+
+      const payload = {
+        action: "saveSettings",
+        portfolioName: portfolioName,
+        lineAvailable: Number(cash) || 0,
+
+        // Keep original nested structure
+        targets: progressTargets,
+
+        // Add flat aliases for Code.gs versions that write directly to API OUTPUT K4:K6
+        totalWealthTarget: progressTargets.totalWealth,
+        dividendValueTarget: progressTargets.dividendValue,
+        growthValueTarget: progressTargets.growthValue,
+        targetTotalWealth: progressTargets.totalWealth,
+        targetDividendValue: progressTargets.dividendValue,
+        targetGrowthValue: progressTargets.growthValue,
+      };
+
+      const res = await fetch(SCRIPT_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "text/plain;charset=utf-8",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const result = await res.json();
+      if (!result.success && result.status !== "success") {
+        throw new Error(result.message || "Save targets failed");
+      }
+
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+      await loadPortfolioFromSheet();
+    } catch (err: any) {
+      console.error("Save targets error:", err);
+      setLoadError(err.message || "Save targets error");
+      alert(`Save targets failed: ${err.message || "Unknown error"}`);
     } finally {
       setLoading(false);
     }
@@ -911,27 +746,20 @@ export default function App() {
     { name: "Growth", value: growValue },
   ];
 
-  const targetWeightTotals = useMemo(() => {
-    const currentPhaseData = phases[phase] ||
-      phases.Build || { dividendPct: 40, growthPct: 60 };
-    return {
-      Dividend: Number(currentPhaseData.dividendPct) || 0,
-      Growth: Number(currentPhaseData.growthPct) || 0,
-    };
-  }, [phases, phase]);
+  const targetWeightTotals = advanceTargetWeightTotals;
 
   const targetCoverageCards = [
     {
       label: "Dividend Target Weight",
       total: targetWeightTotals.Dividend,
       color: "#34d399",
-      subtitle: "From MASTER TARGET phase allocation",
+      subtitle: "From your portfolio target",
     },
     {
       label: "Growth Target Weight",
       total: targetWeightTotals.Growth,
       color: "#60a5fa",
-      subtitle: "From MASTER TARGET phase allocation",
+      subtitle: "From your portfolio target",
     },
   ];
 
@@ -1222,12 +1050,11 @@ export default function App() {
               style={{
                 color: "#60a5fa",
                 fontSize: isMobile ? 12 : 13,
-                fontWeight: 800,
+                fontWeight: 700,
                 fontFamily: "'Inter', sans-serif",
-                whiteSpace: "nowrap",
               }}
             >
-              Normal
+              Normal V2
             </span>
           </div>
           {!isMobile && (
@@ -1298,6 +1125,59 @@ export default function App() {
 
         {tab === "dashboard" && (
           <>
+            {needRebal ? (
+              <div
+                style={{
+                  background: "linear-gradient(135deg,#2b1417,#1b0c0e)",
+                  border: "1px solid #7f1d1d",
+                  borderRadius: 14,
+                  padding: isMobile ? "12px 14px" : "14px 18px",
+                  marginBottom: 22,
+                  display: "flex",
+                  alignItems: isMobile ? "flex-start" : "center",
+                  gap: 12,
+                  flexDirection: isMobile ? "column" : "row",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <span>🔴</span>
+                  <span
+                    style={{ fontWeight: 800, color: "#fca5a5", fontSize: 13 }}
+                  >
+                    Review Allocation
+                  </span>
+                </div>
+                <span style={{ color: "#7d8ea5", fontSize: 12 }}>
+                  Dividend overweight +{fmt(Math.abs(divGap))}% · Target D:
+                  {phaseData.dividendPct}% / G:{phaseData.growthPct}%
+                </span>
+              </div>
+            ) : (
+              equityValue > 0 && (
+                <div
+                  style={{
+                    background: "#06261a",
+                    border: "1px solid #0d5a3d",
+                    borderRadius: 14,
+                    padding: isMobile ? "12px 14px" : "14px 18px",
+                    marginBottom: 22,
+                  }}
+                >
+                  <span>✅ </span>
+                  <span
+                    style={{ fontWeight: 800, color: "#4ade80", fontSize: 13 }}
+                  >
+                    Portfolio Aligned
+                  </span>
+                  <span
+                    style={{ color: "#7d8ea5", fontSize: 12, marginLeft: 8 }}
+                  >
+                    Normal V2
+                  </span>
+                </div>
+              )
+            )}
+
             <div
               style={{
                 display: "grid",
@@ -1332,13 +1212,13 @@ export default function App() {
                 {
                   label: "Dividend Value",
                   value: `฿${fmtB(divValue)}`,
-                  sub: `${fmt(divPct)}%`,
+                  sub: `${fmt(divPct)}% (Target ${phaseData.dividendPct}%)`,
                   accent: "#34d399",
                 },
                 {
                   label: "Growth Value",
                   value: `฿${fmtB(growValue)}`,
-                  sub: `${fmt(growPct)}%`,
+                  sub: `${fmt(growPct)}% (Target ${phaseData.growthPct}%)`,
                   accent: "#60a5fa",
                 },
                 {
@@ -1406,7 +1286,7 @@ export default function App() {
               }}
             >
               <div className={card} style={{ padding: isMobile ? 16 : 22 }}>
-                <div style={ST}>Portfolio Allocation</div>
+                <div style={ST}>Portfolio Allocation — Normal V2</div>
                 <div
                   style={{
                     display: "flex",
@@ -1661,7 +1541,7 @@ export default function App() {
                         ["P/L (฿)", false],
                         ["P/L (%)", false],
                       ].map(([h, l]) => (
-                        <th key={h} style={TH(l)}>
+                        <th key={h} style={TH(Boolean(l))}>
                           {h}
                         </th>
                       ))}
@@ -1838,7 +1718,7 @@ export default function App() {
                 </button>
               </div>
 
-              {buyOrders.length === 0 && (
+              {buyOrders.filter((o) => String(o.execute || o.note || "EXECUTE").trim().toUpperCase() !== "SKIP").length === 0 && (
                 <div
                   style={{
                     background: "#080e1c",
@@ -1854,16 +1734,12 @@ export default function App() {
                 </div>
               )}
 
-              {buyOrders.map((o, i) => {
-                const orderId = `BUY-${o.id || o.symbol || i}`;
-                const edit = getOrderEdit(o, "BUY");
-                const isLogged = loggedOrderIds.includes(orderId);
+              {buyOrders.filter((o) => String(o.execute || o.note || "EXECUTE").trim().toUpperCase() !== "SKIP").map((o, i) => {
                 const buyUnits = num(o.units);
                 const buyCash = num(o.cash);
                 const isActionableBuy = buyUnits > 0 && buyCash > 0;
                 const orderNote =
                   o.note || o.status || "Wait for next budget cycle";
-                const isSoftSuggestion = /maybe|wait|consider/i.test(orderNote);
 
                 return (
                   <div
@@ -1914,26 +1790,14 @@ export default function App() {
                       <span
                         className="pill"
                         style={{
-                          background: isSoftSuggestion
-                            ? "#33260b"
-                            : isActionableBuy
-                            ? "#07261c"
-                            : "#33260b",
-                          color: isSoftSuggestion
-                            ? "#fbbf24"
-                            : isActionableBuy
-                            ? "#4ade80"
-                            : "#fbbf24",
+                          background: isActionableBuy ? "#07261c" : "#33260b",
+                          color: isActionableBuy ? "#4ade80" : "#fbbf24",
                           border: `1px solid ${
-                            isSoftSuggestion
-                              ? "#8a6a16"
-                              : isActionableBuy
-                              ? "#0d5a3d"
-                              : "#8a6a16"
+                            isActionableBuy ? "#0d5a3d" : "#8a6a16"
                           }`,
                         }}
                       >
-                        {orderNote || (isActionableBuy ? "BUY" : "WAIT")}
+                        {isActionableBuy ? "BUY" : orderNote}
                       </span>
                     </div>
 
@@ -1945,9 +1809,12 @@ export default function App() {
                       }}
                     >
                       {[
-                        ["Suggested Buy", `฿${fmt(num(o.suggestedBuy))}`],
-                        ["Buy Units", `${buyUnits.toLocaleString()} shares`],
-                        ["Actual Buy Value", `฿${fmt(buyCash)}`],
+                        ["Suggested Price", `฿${fmt(num(o.price))}`],
+                        [
+                          "Suggested Units",
+                          `${buyUnits.toLocaleString()} shares`,
+                        ],
+                        ["Suggested Cash", `฿${fmt(buyCash)}`],
                       ].map(([k, v]) => (
                         <div
                           key={k}
@@ -1981,154 +1848,6 @@ export default function App() {
                         </div>
                       ))}
                     </div>
-
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
-                        gap: 8,
-                        marginTop: 10,
-                      }}
-                    >
-                      <div
-                        style={{
-                          background: "#0d1526",
-                          borderRadius: 8,
-                          padding: "8px 10px",
-                        }}
-                      >
-                        <div
-                          style={{
-                            fontSize: 10,
-                            color: "#64748b",
-                            marginBottom: 5,
-                            fontWeight: 700,
-                            letterSpacing: "0.08em",
-                            textTransform: "uppercase",
-                          }}
-                        >
-                          Actual Units
-                        </div>
-                        <input
-                          value={edit.actualUnits}
-                          onChange={(e) =>
-                            updateOrderEdit(
-                              orderId,
-                              "actualUnits",
-                              e.target.value
-                            )
-                          }
-                          disabled={isLogged || !isActionableBuy}
-                          style={{
-                            width: "100%",
-                            background: "transparent",
-                            border: "none",
-                            outline: "none",
-                            color: "#e2e8f0",
-                            fontFamily: "'DM Mono', monospace",
-                            fontSize: 13,
-                            fontWeight: 800,
-                          }}
-                        />
-                      </div>
-
-                      <div
-                        style={{
-                          background: "#0d1526",
-                          borderRadius: 8,
-                          padding: "8px 10px",
-                        }}
-                      >
-                        <div
-                          style={{
-                            fontSize: 10,
-                            color: "#64748b",
-                            marginBottom: 5,
-                            fontWeight: 700,
-                            letterSpacing: "0.08em",
-                            textTransform: "uppercase",
-                          }}
-                        >
-                          Actual Buy Price
-                        </div>
-                        <input
-                          value={edit.actualPrice}
-                          onChange={(e) =>
-                            updateOrderEdit(
-                              orderId,
-                              "actualPrice",
-                              e.target.value
-                            )
-                          }
-                          disabled={isLogged || !isActionableBuy}
-                          style={{
-                            width: "100%",
-                            background: "transparent",
-                            border: "none",
-                            outline: "none",
-                            color: "#f59e0b",
-                            fontFamily: "'DM Mono', monospace",
-                            fontSize: 13,
-                            fontWeight: 800,
-                          }}
-                        />
-                      </div>
-                    </div>
-
-                    <input
-                      value={edit.note}
-                      onChange={(e) =>
-                        updateOrderEdit(orderId, "note", e.target.value)
-                      }
-                      disabled={isLogged || !isActionableBuy}
-                      placeholder="Optional note / override reason"
-                      style={{
-                        width: "100%",
-                        marginTop: 8,
-                        background: "#0d1526",
-                        border: "1px solid #1d2a3d",
-                        borderRadius: 8,
-                        color: "#aebacd",
-                        fontFamily: "'DM Mono', monospace",
-                        fontSize: 12,
-                        padding: "8px 10px",
-                        outline: "none",
-                      }}
-                    />
-
-                    <label
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 8,
-                        marginTop: 10,
-                        color: isLogged
-                          ? "#4ade80"
-                          : isActionableBuy
-                          ? "#aebacd"
-                          : "#fbbf24",
-                        fontSize: 12,
-                        fontWeight: 800,
-                        cursor:
-                          isLogged || loading || !isActionableBuy
-                            ? "not-allowed"
-                            : "pointer",
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={isLogged}
-                        disabled={isLogged || loading || !isActionableBuy}
-                        onChange={(e) => {
-                          if (e.target.checked) saveOrderDecision(o, "BUY");
-                        }}
-                      />
-                      {isLogged
-                        ? "Recorded to Decision Log"
-                        : isActionableBuy
-                        ? "Done — save to Decision Log"
-                        : "Waiting — not enough for 1 lot"}
-                    </label>
                   </div>
                 );
               })}
@@ -2254,15 +1973,11 @@ export default function App() {
                     <div
                       style={{ fontSize: 11, color: "#334155", marginTop: 4 }}
                     >
-                      Current phase: {phase}
+                      Normal V2
                     </div>
                   </div>
                 ) : (
                   sellOrders.map((o, i) => {
-                    const orderId = `SELL-${o.id || o.symbol || i}`;
-                    const edit = getOrderEdit(o, "SELL");
-                    const isLogged = loggedOrderIds.includes(orderId);
-
                     return (
                       <div
                         key={o.id || i}
@@ -2322,7 +2037,7 @@ export default function App() {
                               border: "1px solid #7f1d1d",
                             }}
                           >
-                            {o.note || o.status || "PENDING"}
+                            {o.status || "PENDING"}
                           </span>
                         </div>
 
@@ -2337,19 +2052,17 @@ export default function App() {
                         >
                           {[
                             [
-                              "Suggested Sell",
-                              o.suggestedSell === ""
-                                ? "—"
-                                : `฿${fmt(num(o.suggestedSell))}`,
+                              "Suggested Price",
+                              o.price === "" ? "—" : `฿${fmt(num(o.price))}`,
                             ],
                             [
-                              "Sell Units",
+                              "Suggested Units",
                               o.units === ""
                                 ? "—"
                                 : `${Number(o.units).toLocaleString()} shares`,
                             ],
                             [
-                              "Actual Sell Value",
+                              "Sell Value",
                               o.sellValue === ""
                                 ? "—"
                                 : `฿${fmt(num(o.sellValue))}`,
@@ -2387,762 +2100,129 @@ export default function App() {
                             </div>
                           ))}
                         </div>
-
-                        <div
-                          style={{
-                            display: "grid",
-                            gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
-                            gap: 8,
-                            marginTop: 10,
-                          }}
-                        >
-                          <div
-                            style={{
-                              background: "#0d1526",
-                              borderRadius: 8,
-                              padding: "8px 10px",
-                            }}
-                          >
-                            <div
-                              style={{
-                                fontSize: 10,
-                                color: "#64748b",
-                                marginBottom: 5,
-                                fontWeight: 700,
-                                letterSpacing: "0.08em",
-                                textTransform: "uppercase",
-                              }}
-                            >
-                              Actual Units
-                            </div>
-                            <input
-                              value={edit.actualUnits}
-                              onChange={(e) =>
-                                updateOrderEdit(
-                                  orderId,
-                                  "actualUnits",
-                                  e.target.value
-                                )
-                              }
-                              disabled={isLogged}
-                              style={{
-                                width: "100%",
-                                background: "transparent",
-                                border: "none",
-                                outline: "none",
-                                color: "#e2e8f0",
-                                fontFamily: "'DM Mono', monospace",
-                                fontSize: 13,
-                                fontWeight: 800,
-                              }}
-                            />
-                          </div>
-
-                          <div
-                            style={{
-                              background: "#0d1526",
-                              borderRadius: 8,
-                              padding: "8px 10px",
-                            }}
-                          >
-                            <div
-                              style={{
-                                fontSize: 10,
-                                color: "#64748b",
-                                marginBottom: 5,
-                                fontWeight: 700,
-                                letterSpacing: "0.08em",
-                                textTransform: "uppercase",
-                              }}
-                            >
-                              Actual Sell Price
-                            </div>
-                            <input
-                              value={edit.actualPrice}
-                              onChange={(e) =>
-                                updateOrderEdit(
-                                  orderId,
-                                  "actualPrice",
-                                  e.target.value
-                                )
-                              }
-                              disabled={isLogged}
-                              style={{
-                                width: "100%",
-                                background: "transparent",
-                                border: "none",
-                                outline: "none",
-                                color: "#f59e0b",
-                                fontFamily: "'DM Mono', monospace",
-                                fontSize: 13,
-                                fontWeight: 800,
-                              }}
-                            />
-                          </div>
-                        </div>
-
-                        <input
-                          value={edit.note}
-                          onChange={(e) =>
-                            updateOrderEdit(orderId, "note", e.target.value)
-                          }
-                          disabled={isLogged}
-                          placeholder="Optional note / override reason"
-                          style={{
-                            width: "100%",
-                            marginTop: 8,
-                            background: "#0d1526",
-                            border: "1px solid #1d2a3d",
-                            borderRadius: 8,
-                            color: "#aebacd",
-                            fontFamily: "'DM Mono', monospace",
-                            fontSize: 12,
-                            padding: "8px 10px",
-                            outline: "none",
-                          }}
-                        />
-
-                        <label
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 8,
-                            marginTop: 10,
-                            color: isLogged ? "#4ade80" : "#aebacd",
-                            fontSize: 12,
-                            fontWeight: 800,
-                            cursor:
-                              isLogged || loading ? "not-allowed" : "pointer",
-                          }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={isLogged}
-                            disabled={isLogged || loading}
-                            onChange={(e) => {
-                              if (e.target.checked)
-                                saveOrderDecision(o, "SELL");
-                            }}
-                          />
-                          {isLogged
-                            ? "Recorded to Decision Log"
-                            : "Done — save to Decision Log"}
-                        </label>
                       </div>
                     );
                   })
                 )}
               </div>
-            </div>
-          </div>
-        )}
 
-        {tab === "record" && (
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
-              gap: 16,
-            }}
-          >
-            <div className={card} style={{ padding: isMobile ? 16 : 22 }}>
-              <div style={ST}>Buy / Sell Record</div>
-              <div
-                style={{
-                  color: "#7d8ea5",
-                  fontSize: 12,
-                  lineHeight: 1.6,
-                  marginBottom: 16,
-                }}
-              >
-                Record the actual trade after you execute it in your broker app.
-                This will update DECISION LOG and activate Anti-Flip protection.
-              </div>
+              <div className={card} style={{ padding: isMobile ? 16 : 22 }}>
+                <div style={ST}>Rebalance Insight</div>
+                {[
+                  {
+                    label: "Growth",
+                    pct: growPct,
+                    target: phaseData.growthPct,
+                    gap: growGap,
+                    color: "#60a5fa",
+                    advice:
+                      growGap < -5
+                        ? `🟢 Buy Bias — increase Growth from ${fmt(
+                            growPct
+                          )}% to ${phaseData.growthPct}%`
+                        : growGap > 5
+                        ? `⚠️ Trim Bias — Growth exceeds target by ${fmt(
+                            growGap
+                          )}%`
+                        : `✅ Growth is on target`,
+                  },
+                  {
+                    label: "Dividend",
+                    pct: divPct,
+                    target: phaseData.dividendPct,
+                    gap: divGap,
+                    color: "#34d399",
+                    advice:
+                      divGap > 5
+                        ? `🔴 Trim Bias — Dividend exceeds target by ${fmt(
+                            divGap
+                          )}%`
+                        : divGap < -5
+                        ? `🟢 Buy Bias — increase Dividend`
+                        : `✅ Dividend is on target`,
+                  },
+                ].map((r, i) => {
+                  const isOk = Math.abs(r.gap) <= 5;
+                  const isOver = r.gap > 5;
 
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
-                  gap: 12,
-                }}
-              >
-                <div>
-                  <div style={ST}>Asset Code</div>
-                  <input
-                    value={decisionForm.assetCode}
-                    onChange={(e) =>
-                      setDecisionForm((p) => ({
-                        ...p,
-                        assetCode: e.target.value.toUpperCase(),
-                      }))
-                    }
-                    placeholder="e.g. BBIK"
-                    style={{
-                      width: "100%",
-                      background: "#0d1526",
-                      border: "1px solid #1d2a3d",
-                      borderRadius: 10,
-                      color: "#e2e8f0",
-                      fontSize: 14,
-                      fontFamily: "'DM Mono', monospace",
-                      padding: "10px 12px",
-                      outline: "none",
-                      fontWeight: 700,
-                    }}
-                  />
-                </div>
-
-                <div>
-                  <div style={ST}>System Suggest</div>
-                  <select
-                    value={decisionForm.systemSuggest}
-                    onChange={(e) =>
-                      setDecisionForm((p) => ({
-                        ...p,
-                        systemSuggest: e.target.value,
-                      }))
-                    }
-                    style={{
-                      width: "100%",
-                      background: "#0d1526",
-                      border: "1px solid #1d2a3d",
-                      borderRadius: 10,
-                      color: "#e2e8f0",
-                      fontSize: 14,
-                      fontFamily: "'DM Mono', monospace",
-                      padding: "10px 12px",
-                      outline: "none",
-                      fontWeight: 700,
-                    }}
-                  >
-                    <option value="BUY">BUY</option>
-                    <option value="SELL">SELL</option>
-                    <option value="HOLD">HOLD</option>
-                  </select>
-                </div>
-
-                <div>
-                  <div style={ST}>System Price</div>
-                  <input
-                    value={decisionForm.systemPrice}
-                    onChange={(e) =>
-                      setDecisionForm((p) => ({
-                        ...p,
-                        systemPrice: e.target.value,
-                      }))
-                    }
-                    placeholder="0.00"
-                    type="number"
-                    style={{
-                      width: "100%",
-                      background: "#0d1526",
-                      border: "1px solid #1d2a3d",
-                      borderRadius: 10,
-                      color: "#aebacd",
-                      fontSize: 14,
-                      fontFamily: "'DM Mono', monospace",
-                      padding: "10px 12px",
-                      outline: "none",
-                    }}
-                  />
-                </div>
-
-                <div>
-                  <div style={ST}>Units</div>
-                  <input
-                    value={decisionForm.units}
-                    onChange={(e) =>
-                      setDecisionForm((p) => ({ ...p, units: e.target.value }))
-                    }
-                    placeholder="0"
-                    type="number"
-                    style={{
-                      width: "100%",
-                      background: "#0d1526",
-                      border: "1px solid #1d2a3d",
-                      borderRadius: 10,
-                      color: "#e2e8f0",
-                      fontSize: 14,
-                      fontFamily: "'DM Mono', monospace",
-                      padding: "10px 12px",
-                      outline: "none",
-                      fontWeight: 700,
-                    }}
-                  />
-                </div>
-
-                <div>
-                  <div style={ST}>You Did</div>
-                  <select
-                    value={decisionForm.youDid}
-                    onChange={(e) =>
-                      setDecisionForm((p) => ({ ...p, youDid: e.target.value }))
-                    }
-                    style={{
-                      width: "100%",
-                      background: "#0d1526",
-                      border: "1px solid #1d2a3d",
-                      borderRadius: 10,
-                      color:
-                        decisionForm.youDid === "SELL"
-                          ? "#f87171"
-                          : decisionForm.youDid === "BUY"
-                          ? "#34d399"
-                          : "#aebacd",
-                      fontSize: 14,
-                      fontFamily: "'DM Mono', monospace",
-                      padding: "10px 12px",
-                      outline: "none",
-                      fontWeight: 800,
-                    }}
-                  >
-                    <option value="BUY">BUY</option>
-                    <option value="SELL">SELL</option>
-                    <option value="HOLD">HOLD</option>
-                  </select>
-                </div>
-
-                <div>
-                  <div style={ST}>Buy / Sell Price</div>
-                  <input
-                    value={decisionForm.buySellPrice}
-                    onChange={(e) =>
-                      setDecisionForm((p) => ({
-                        ...p,
-                        buySellPrice: e.target.value,
-                      }))
-                    }
-                    placeholder="0.00"
-                    type="number"
-                    style={{
-                      width: "100%",
-                      background: "#0d1526",
-                      border: "1px solid #1d2a3d",
-                      borderRadius: 10,
-                      color: "#f59e0b",
-                      fontSize: 14,
-                      fontFamily: "'DM Mono', monospace",
-                      padding: "10px 12px",
-                      outline: "none",
-                      fontWeight: 800,
-                    }}
-                  />
-                </div>
-              </div>
-
-              <button
-                onClick={saveDecisionRecord}
-                style={{
-                  marginTop: 16,
-                  background: decisionSaved
-                    ? "#06261a"
-                    : "linear-gradient(135deg,#1d4ed8,#2563eb)",
-                  border: `1px solid ${decisionSaved ? "#0d5a3d" : "#3b82f6"}`,
-                  color: decisionSaved ? "#4ade80" : "#fff",
-                  borderRadius: 12,
-                  padding: "14px 18px",
-                  fontSize: 14,
-                  fontWeight: 800,
-                  cursor: "pointer",
-                  fontFamily: "'Inter', sans-serif",
-                  boxShadow: decisionSaved
-                    ? "none"
-                    : "0 10px 24px rgba(37,99,235,.22)",
-                  width: "100%",
-                }}
-              >
-                {decisionSaved ? "✓ Recorded" : "Save Record"}
-              </button>
-            </div>
-
-            <div className={card} style={{ padding: isMobile ? 16 : 22 }}>
-              <div style={ST}>How this works</div>
-              <div
-                style={{
-                  display: "grid",
-                  gap: 10,
-                  color: "#aebacd",
-                  fontSize: 12,
-                  lineHeight: 1.6,
-                }}
-              >
-                <div style={IB}>
-                  <b style={{ color: "#e2e8f0" }}>1. Follow Orders</b>
-                  <br />
-                  Use the Orders tab as the system suggestion.
-                </div>
-                <div style={IB}>
-                  <b style={{ color: "#e2e8f0" }}>2. Execute in Broker</b>
-                  <br />
-                  Buy or sell in your trading app.
-                </div>
-                <div style={IB}>
-                  <b style={{ color: "#e2e8f0" }}>3. Save Record</b>
-                  <br />
-                  This creates a DECISION LOG row and prevents immediate flip
-                  trades.
-                </div>
-                <div
-                  style={{
-                    background: "#0d1a10",
-                    border: "1px solid #0d5a3d",
-                    borderRadius: 10,
-                    padding: "12px 14px",
-                    color: "#4ade80",
-                    fontWeight: 700,
-                  }}
-                >
-                  Anti-Flip: recent trades are temporarily locked unless time
-                  passes or price moves enough.
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {tab === "input" && (
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: isMobile ? "1fr" : "1.6fr 1fr",
-              gap: 20,
-            }}
-          >
-            <div>
-              <div style={{ ...IB, padding: 0, overflow: "hidden" }}>
-                <div
-                  style={{
-                    padding: "14px 18px",
-                    borderBottom: "1px solid #1d2a3d",
-                    display: "flex",
-                    alignItems: isMobile ? "flex-start" : "center",
-                    justifyContent: "space-between",
-                    flexDirection: isMobile ? "column" : "row",
-                    gap: 12,
-                    background: "#060d18",
-                  }}
-                >
-                  <div>
+                  return (
                     <div
+                      key={i}
                       style={{
-                        fontWeight: 800,
-                        fontSize: 13,
-                        color: "#e2e8f0",
+                        background: isOk
+                          ? "#080e1c"
+                          : isOver
+                          ? "#1a0f0f"
+                          : "#0d1a10",
+                        border: `1px solid ${
+                          isOk ? "#1a2540" : isOver ? "#7f1d1d" : "#0d5a3d"
+                        }`,
+                        borderRadius: 10,
+                        padding: "12px 14px",
+                        marginBottom: 10,
                       }}
                     >
-                      Portfolio Holdings
-                    </div>
-                    <div
-                      style={{ fontSize: 10, color: "#64748b", marginTop: 2 }}
-                    >
-                      Enter symbol, type, units, and average cost. Price is
-                      automatic.
-                    </div>
-                  </div>
-                  <button
-                    onClick={addHolding}
-                    style={{
-                      background: "#1f3c63",
-                      border: "none",
-                      color: "#8ec5ff",
-                      borderRadius: 8,
-                      padding: "7px 14px",
-                      fontSize: 12,
-                      cursor: "pointer",
-                      fontFamily: "'Inter', sans-serif",
-                      fontWeight: 700,
-                      width: isMobile ? "100%" : "auto",
-                    }}
-                  >
-                    + Add Position
-                  </button>
-                </div>
-
-                <div style={{ overflowX: "auto" }}>
-                  <table
-                    style={{
-                      width: "100%",
-                      minWidth: 980,
-                      borderCollapse: "collapse",
-                    }}
-                  >
-                    <thead>
-                      <tr style={{ background: "#060d18" }}>
-                        {[
-                          "#",
-                          "Symbol",
-                          "Type",
-                          "Units",
-                          "Avg Cost",
-                          "Price",
-                          "Market Value",
-                          "",
-                        ].map((h, i) => (
-                          <th
-                            key={i}
-                            style={{
-                              padding: "12px 10px",
-                              fontSize: 11,
-                              color: "#d6e0ee",
-                              fontWeight: 800,
-                              textAlign:
-                                i === 0 || i === 8
-                                  ? "center"
-                                  : i <= 2
-                                  ? "left"
-                                  : "right",
-                              textTransform: "uppercase",
-                              letterSpacing: "0.12em",
-                              borderBottom: "1px solid #1d2a3d",
-                            }}
-                          >
-                            {h}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-
-                    <tbody>
-                      {holdings.map((h, i) => {
-                        const mv = num(h.units) * num(h.price);
-
-                        return (
-                          <tr
-                            key={i}
-                            className="rh"
-                            style={{
-                              background:
-                                i % 2 === 0 ? "transparent" : "#08111f",
-                              borderBottom: "1px solid #0d1526",
-                            }}
-                          >
-                            <td
-                              style={{
-                                padding: "6px 10px",
-                                textAlign: "center",
-                                fontSize: 10,
-                                color: "#4b607b",
-                                fontFamily: "'DM Mono', monospace",
-                              }}
-                            >
-                              {i + 1}
-                            </td>
-                            <td style={{ padding: "4px 5px" }}>
-                              <EInput
-                                val={h.symbol}
-                                onChange={(v) =>
-                                  updateHolding(i, "symbol", v.toUpperCase())
-                                }
-                                placeholder="SYMBOL"
-                                align="left"
-                                width="76px"
-                              />
-                            </td>
-                            <td style={{ padding: "4px 5px" }}>
-                              <EInput
-                                val={normalizeHoldingType(h.type)}
-                                onChange={(v) => updateHolding(i, "type", v)}
-                                options={HOLDING_TYPES}
-                                width="88px"
-                              />
-                            </td>
-                            <td style={{ padding: "4px 5px" }}>
-                              <EInput
-                                val={h.units}
-                                onChange={(v) => updateHolding(i, "units", v)}
-                                placeholder="0"
-                                width="66px"
-                              />
-                            </td>
-                            <td style={{ padding: "4px 5px" }}>
-                              <EInput
-                                val={h.avgCost}
-                                onChange={(v) => updateHolding(i, "avgCost", v)}
-                                placeholder="0.00"
-                                width="72px"
-                              />
-                            </td>
-                            <td
-                              style={{
-                                padding: "6px 10px",
-                                textAlign: "right",
-                                fontSize: 12,
-                                fontFamily: "'DM Mono', monospace",
-                                color: num(h.price) > 0 ? "#9fb0c6" : "#64748b",
-                                fontWeight: 400,
-                                letterSpacing: "0.01em",
-                              }}
-                            >
-                              {num(h.price) > 0 ? fmt(num(h.price)) : "—"}
-                            </td>
-                            <td
-                              style={{
-                                padding: "6px 10px",
-                                textAlign: "right",
-                                fontSize: 11,
-                                fontFamily: "'DM Mono', monospace",
-                                color: mv > 0 ? "#b8c5d6" : "#2f3f55",
-                              }}
-                            >
-                              {mv > 0 ? `฿${fmt(mv)}` : "—"}
-                            </td>
-                            <td
-                              style={{
-                                padding: "4px 5px",
-                                textAlign: "center",
-                              }}
-                            >
-                              <button
-                                className="ibtn"
-                                onClick={() => removeHolding(i)}
-                              >
-                                ✕
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-
-                    <tfoot>
-                      <tr
+                      <div
                         style={{
-                          background: "#060d18",
-                          borderTop: "2px solid #1d2a3d",
+                          fontSize: 12,
+                          color: isOk
+                            ? "#4ade80"
+                            : isOver
+                            ? "#fca5a5"
+                            : "#4ade80",
+                          fontWeight: 700,
+                          marginBottom: 4,
                         }}
                       >
-                        <td
-                          colSpan={6}
+                        {r.advice}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 11,
+                          color: "#64748b",
+                          lineHeight: 1.5,
+                        }}
+                      >
+                        Current{" "}
+                        <span
                           style={{
-                            padding: "11px 14px",
-                            fontSize: 11,
-                            color: "#7d8ea5",
-                            fontWeight: 800,
-                            letterSpacing: "0.1em",
-                            textTransform: "uppercase",
-                          }}
-                        >
-                          Total Equity
-                        </td>
-                        <td
-                          style={{
-                            padding: "11px 14px",
-                            textAlign: "right",
+                            color: r.color,
                             fontFamily: "'DM Mono', monospace",
-                            fontSize: 13,
-                            fontWeight: 800,
-                            color: "#f2f6fb",
+                            fontWeight: 700,
                           }}
                         >
-                          ฿{fmt(equityValue)}
-                        </td>
-                        <td />
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
+                          {fmt(r.pct)}%
+                        </span>
+                        &nbsp;→ Target{" "}
+                        <span
+                          style={{
+                            fontFamily: "'DM Mono', monospace",
+                            fontWeight: 700,
+                          }}
+                        >
+                          {r.target}%
+                        </span>
+                        &nbsp;(Gap:{" "}
+                        <span
+                          style={{
+                            color: isOk
+                              ? "#4ade80"
+                              : isOver
+                              ? "#f87171"
+                              : "#f59e0b",
+                            fontFamily: "'DM Mono', monospace",
+                            fontWeight: 700,
+                          }}
+                        >
+                          {r.gap > 0 ? "+" : ""}
+                          {fmt(r.gap)}%
+                        </span>
+                        )
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-
-              <div style={IB}>
-                <div style={ST}>Portfolio Name</div>
-                <input
-                  value={portfolioName}
-                  onChange={(e) => setPortfolioName(e.target.value)}
-                  placeholder="Enter portfolio name"
-                  style={{
-                    width: "100%",
-                    background: "#0d1526",
-                    border: "1px solid #1d2a3d",
-                    borderRadius: 10,
-                    color: "#e2e8f0",
-                    fontSize: 14,
-                    fontFamily: "'DM Mono', monospace",
-                    padding: "10px 12px",
-                    outline: "none",
-                    fontWeight: 600,
-                  }}
-                />
-              </div>
-
-              <div style={IB}>
-                <div style={ST}>Cash / Line Available</div>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 10,
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <span style={{ fontSize: 13, color: "#7d8ea5" }}>฿</span>
-                  <input
-                    value={cash}
-                    onChange={(e) => setCash(e.target.value)}
-                    type="number"
-                    style={{
-                      background: "#0d1526",
-                      border: "1px solid #1d2a3d",
-                      borderRadius: 10,
-                      color: "#34d399",
-                      fontSize: 16,
-                      fontFamily: "'DM Mono', monospace",
-                      padding: "9px 12px",
-                      outline: "none",
-                      width: isMobile ? "100%" : "220px",
-                      fontWeight: 700,
-                    }}
-                  />
-                  {!isMobile && (
-                    <span style={{ fontSize: 11, color: "#4b607b" }}>THB</span>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              <div style={IB}>
-                <div
-                  style={{
-                    fontWeight: 800,
-                    fontSize: 13,
-                    marginBottom: 10,
-                    color: "#e2e8f0",
-                  }}
-                >
-                  Normal Service
-                </div>
-                <div
-                  style={{
-                    fontSize: 12,
-                    color: "#7d8ea5",
-                    lineHeight: 1.6,
-                  }}
-                >
-                  Normal Service You decide your portfolio. We help you see it
-                  clearer. Just better decisions.
-                </div>
-              </div>
-
-              <button
-                onClick={handleSave}
-                style={{
-                  background: saved
-                    ? "#06261a"
-                    : "linear-gradient(135deg,#1d4ed8,#2563eb)",
-                  border: `1px solid ${saved ? "#0d5a3d" : "#3b82f6"}`,
-                  color: saved ? "#4ade80" : "#fff",
-                  borderRadius: 12,
-                  padding: "15px 18px",
-                  fontSize: 14,
-                  fontWeight: 800,
-                  cursor: "pointer",
-                  fontFamily: "'Inter', sans-serif",
-                  boxShadow: saved ? "none" : "0 10px 24px rgba(37,99,235,.22)",
-                  width: "100%",
-                }}
-              >
-                {saved ? "✓ Saved" : "Save"}
-              </button>
             </div>
           </div>
         )}
@@ -3172,7 +2252,7 @@ export default function App() {
                   </div>
                 </div>
                 <button
-                  onClick={handleSave}
+                  onClick={saveProgressTargets}
                   disabled={loading}
                   style={{
                     background: saved ? "#06261a" : "#0d1f3a",
@@ -3338,7 +2418,7 @@ export default function App() {
                       tickFormatter={(v) => `฿${fmtB(v)}`}
                       width={55}
                     />
-                    <Tooltip content={<CTip />} />
+                    <RechartsTooltip content={<CTip />} />
                     <Legend
                       wrapperStyle={{
                         fontSize: 11,
@@ -3387,7 +2467,7 @@ export default function App() {
                       fillOpacity={0.25}
                       strokeWidth={2}
                     />
-                    <Tooltip
+                    <RechartsTooltip
                       contentStyle={{
                         background: "#0d1526",
                         border: "1px solid #1a2540",
@@ -3404,3 +2484,4 @@ export default function App() {
     </div>
   );
 }
+export default App;
